@@ -11,6 +11,14 @@ import apiRoutes from './routes/apiRoutes';
 class Server {
     public app: express.Application;
     
+    private optionsCors: cors.CorsOptions = {
+        allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "X-Access-Token"],
+        credentials: true,
+        methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
+        origin: 'http://localhost:4200',
+        preflightContinue: false
+    };
+
     constructor() {
         this.app = express();
         this.config();
@@ -35,7 +43,7 @@ class Server {
         this.app.use(express.urlencoded({extended: false}));
         this.app.use(helmet());
         this.app.use(compression());
-        this.app.use(cors());
+        this.app.use(cors(this.optionsCors));
     }
 
     routes() {
