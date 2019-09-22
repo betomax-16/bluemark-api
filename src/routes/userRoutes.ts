@@ -1,4 +1,5 @@
-import { Request, Response, Router } from "express";
+import { Response, Router } from "express";
+import { IRequest } from '../interfaces/IRequest';
 import User, { IUserModel } from '../models/user';
 import TokenService from '../services/tokenService';
 import middlewaresAuth from '../middlewares/auth';
@@ -12,33 +13,42 @@ class UserRoutes {
         this.routes();
     }
 
-    async getUsers(req: Request, res: Response) {
+    async getProfile(req: IRequest, res: Response) {
+        const idUsuario: string|undefined = req.iam;
+        if (!idUsuario) return res.status(400).send({message: 'Token fail.'});
+        let user: IUserModel | null = await User.findById(idUsuario);
+        if (!user) return res.status(404).send({message: 'User not found.'});
+        if (user.password) { user.password = undefined; }
+        return res.status(200).send(user);
+    }
+ 
+    async getUsers(req: IRequest, res: Response) {
         const users: IUserModel[] = await User.find();
         res.json(users);
     }
 
-    async getUser(req: Request, res: Response) {
+    async getUser(req: IRequest, res: Response) {
         const user: IUserModel | null = await User.findById(req.params.id);
         res.json(user);
     }
 
-    async createUser(req: Request, res: Response) {
+    async createUser(req: IRequest, res: Response) {
         const newUser: IUserModel = new User(req.body);
         await newUser.save();
         res.json(newUser);
     }
 
-    async updateUser(req: Request, res: Response) {
+    async updateUser(req: IRequest, res: Response) {
         const user: IUserModel | null = await User.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});
         res.json(user);
     }
 
-    async deleteUser(req: Request, res: Response) {
+    async deleteUser(req: IRequest, res: Response) {
         await User.findByIdAndDelete(req.params.id);
         res.json({message: 'User successfully removed.'});
     }
 
-    async login(req: Request, res: Response) {
+    async login(req: IRequest, res: Response) {
         let user: IUserModel | null = await User.findOne({email: req.body.email}).exec();
         if (!user) {
             return res.status(400).send({message: 'The email does not exist'});
@@ -60,15 +70,15 @@ class UserRoutes {
     // --------------------------------------------------------------
     // --------------------------------------------------------------
     // --------------------------------------------------------------
-    admin(req: Request, res: Response) {
+    admin(req: IRequest, res: Response) {
         res.send({message: 'Admin'});
     }
 
-    user(req: Request, res: Response) {
+    user(req: IRequest, res: Response) {
         res.send({message: 'User'});
     }
 
-    company(req: Request, res: Response) {
+    company(req: IRequest, res: Response) {
         res.send({message: 'Company'});
     }
     // --------------------------------------------------------------
@@ -76,6 +86,8 @@ class UserRoutes {
     // --------------------------------------------------------------
 
     routes() {
+        this.router.route('/profile')
+                        .post(middlewaresAuth.isAuth, this.getProfile);
         this.router.route('/login')
                         .post(this.login);
         this.router.route('/users')
