@@ -40,10 +40,13 @@ UserSchema.pre('save', function (next){
 })
 
 UserSchema.pre('findOneAndUpdate', function (next){
-  let user: IUser = this.getUpdate();
+  let user: IUser = this.getUpdate().$set;
   if (!user) return next();
-  else if(!user.password) return next();
-  else if(user.password && user.password == '') {
+  else if(!user.password) {
+    delete user.password;
+    return next();
+  }
+  else if(user.password && user.password.trim() == '') {
     delete user.password;
     return next();
   }

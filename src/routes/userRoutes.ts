@@ -1,9 +1,11 @@
-import { Response, Router } from "express";
+import { Request, Response, Router } from "express";
 import { IRequest } from '../interfaces/IRequest';
 import User, { IUserModel } from '../models/user';
 import TokenService from '../services/tokenService';
 import middlewaresAuth from '../middlewares/auth';
 import middlewaresRol from '../middlewares/rol';
+import path from 'path';
+import fs from 'fs';
 
 class UserRoutes {
     public router: Router;
@@ -39,8 +41,15 @@ class UserRoutes {
     }
 
     async updateUser(req: IRequest, res: Response) {
-        const user: IUserModel | null = await User.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});
-        res.json(user);
+        const idUsuario: string|undefined = req.iam;
+        let user: IUserModel | null = null;
+        if (!req.params.id && idUsuario) {
+            user = await User.findByIdAndUpdate(idUsuario, {$set:req.body}, {new: true});
+        }
+        else if (req.params.id) {
+            user = await User.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});            
+        }
+        res.json(user);     
     }
 
     async deleteUser(req: IRequest, res: Response) {
@@ -67,6 +76,25 @@ class UserRoutes {
         });
     }
 
+    async uploadImage(req: IRequest, res: Response) {
+        const idUsuario: string|undefined = req.body.id ? req.body.id : req.iam;
+        const user: IUserModel | null = await User.findById(idUsuario);
+        if (user && user.imageUrl) {
+            const name = user.imageUrl.split('/').pop();
+            if (name) {
+                const local: string = __dirname.replace('\\routes', '\\');
+                const file: string = path.join(local, 'public/profile', name);
+                const exist: boolean = await fs.existsSync(file);
+                if (exist) {
+                    await fs.unlinkSync(file);
+                }
+            }
+        }
+        
+        const host = req.protocol + "://" + req.get('host') + '/static/profile/' + req.file.filename;
+        await User.findByIdAndUpdate(idUsuario, {$set:{imageUrl: host}}, {new: true});
+        res.json({imageUrl: host});
+    }
     // --------------------------------------------------------------
     // --------------------------------------------------------------
     // --------------------------------------------------------------
@@ -86,8 +114,11 @@ class UserRoutes {
     // --------------------------------------------------------------
 
     routes() {
+        this.router.route('/imageprofile')
+                        .post(middlewaresAuth.isAuth, this.uploadImage);
         this.router.route('/profile')
-                        .post(middlewaresAuth.isAuth, this.getProfile);
+                        .post(middlewaresAuth.isAuth, this.getProfile)
+                        .put(middlewaresAuth.isAuth, this.updateUser);
         this.router.route('/login')
                         .post(this.login);
         this.router.route('/users')

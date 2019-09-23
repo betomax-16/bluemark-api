@@ -4,13 +4,16 @@ import helmet from 'helmet';
 import mongoose from "mongoose";
 import compression from 'compression';
 import cors from 'cors';
+import multer from 'multer';
+import path from 'path';
 
 import indexRoutes from './routes/indexRoutes';
 import apiRoutes from './routes/apiRoutes';
+import { pathToFileURL } from 'url';
 
 class Server {
     public app: express.Application;
-    
+
     private optionsCors: cors.CorsOptions = {
         allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "X-Access-Token"],
         credentials: true,
@@ -38,11 +41,22 @@ class Server {
         this.app.set('port', process.env.PORT || 3000);
 
         // Middlewares
+        this.app.use('/static', express.static(__dirname + '\\public'));
         this.app.use(morgan('dev'));
         this.app.use(express.json());
         this.app.use(express.urlencoded({extended: false}));
         this.app.use(helmet());
         this.app.use(compression());
+        const storage: multer.StorageEngine = multer.diskStorage({
+            destination: path.join(__dirname, 'public/profile'),
+            filename: (req, file, cb) => {
+                const name = file.originalname.split('.')[0];
+                const ext = file.originalname.split('.').pop();
+                const date = Date.now();
+                cb(null, name + '-' + date + '.' + ext );
+            }
+        });
+        this.app.use(multer({storage}).single('photo'));
         // this.app.use(cors(this.optionsCors));
         this.app.use(cors());
     }
