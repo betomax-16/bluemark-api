@@ -4,10 +4,21 @@ import User, { IUserModel } from '../models/user';
 import TokenService from '../services/tokenService';
 import middlewaresAuth from '../middlewares/auth';
 import middlewaresRol from '../middlewares/rol';
+import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
 class UserRoutes {
+    private storage: multer.StorageEngine = multer.diskStorage({
+        destination: path.join(__dirname.replace('\\routes', '\\').replace('/routes', '/'), 'public/profile'),
+        filename: (req, file, cb) => {
+            const name = file.originalname.split('.')[0];
+            const ext = file.originalname.split('.').pop();
+            const date = Date.now();
+            cb(null, name + '-' + date + '.' + ext );
+        }
+    });
+
     public router: Router;
 
     constructor() {
@@ -54,6 +65,10 @@ class UserRoutes {
 
     async deleteUser(req: IRequest, res: Response) {
         await User.findByIdAndDelete(req.params.id);
+        const user: IUserModel | null = await User.findById(req.params.id);
+        if (user) {
+            await this.removeImage(user);
+        }
         res.json({message: 'User successfully removed.'});
     }
 
@@ -76,13 +91,18 @@ class UserRoutes {
         });
     }
 
-    async uploadImage(req: IRequest, res: Response) {
-        const idUsuario: string|undefined = req.body.id ? req.body.id : req.iam;
-        const user: IUserModel | null = await User.findById(idUsuario);
+    async signup(req: IRequest, res: Response) {
+        const newUser: IUserModel = new User(req.body);
+        await newUser.save();
+        const token: string = TokenService.createToken(newUser);
+        res.send({message: 'Wellcome!!', token});
+    }
+
+     async removeImage(user: IUserModel) {
         if (user && user.imageUrl) {
             const name = user.imageUrl.split('/').pop();
             if (name) {
-                const local: string = __dirname.replace('\\routes', '\\');
+                const local: string = __dirname.replace('\\routes', '\\').replace('/routes', '/');
                 const file: string = path.join(local, 'public/profile', name);
                 const exist: boolean = await fs.existsSync(file);
                 if (exist) {
@@ -90,51 +110,36 @@ class UserRoutes {
                 }
             }
         }
-        
+    }
+
+    async uploadImage(req: IRequest, res: Response) {
+        const idUsuario: string|undefined = req.body.id ? req.body.id : req.iam;
+        const user: IUserModel | null = await User.findById(idUsuario);
+        if (user) {
+            await this.removeImage(user);
+        }
         const host = req.protocol + "://" + req.get('host') + '/static/profile/' + req.file.filename;
         await User.findByIdAndUpdate(idUsuario, {$set:{imageUrl: host}}, {new: true});
         res.json({imageUrl: host});
     }
-    // --------------------------------------------------------------
-    // --------------------------------------------------------------
-    // --------------------------------------------------------------
-    admin(req: IRequest, res: Response) {
-        res.send({message: 'Admin'});
-    }
-
-    user(req: IRequest, res: Response) {
-        res.send({message: 'User'});
-    }
-
-    company(req: IRequest, res: Response) {
-        res.send({message: 'Company'});
-    }
-    // --------------------------------------------------------------
-    // --------------------------------------------------------------
-    // --------------------------------------------------------------
 
     routes() {
         this.router.route('/imageprofile')
-                        .post(middlewaresAuth.isAuth, this.uploadImage);
+                        .post(middlewaresAuth.isAuth, middlewaresRol.isUser, multer({storage: this.storage}).single('photo'), this.uploadImage);
         this.router.route('/profile')
-                        .post(middlewaresAuth.isAuth, this.getProfile)
-                        .put(middlewaresAuth.isAuth, this.updateUser);
+                        .post(middlewaresAuth.isAuth, middlewaresRol.isUser, this.getProfile)
+                        .put(middlewaresAuth.isAuth, middlewaresRol.isUser, this.updateUser);
+        this.router.route('/signup')
+                        .post(this.signup);
         this.router.route('/login')
                         .post(this.login);
         this.router.route('/users')
-                        .get(this.getUsers)
-                        .post(this.createUser);
+                        .get(middlewaresAuth.isAuth, middlewaresRol.isAdmin, this.getUsers)
+                        .post(middlewaresAuth.isAuth, middlewaresRol.isAdmin, this.createUser);
         this.router.route('/users/:id')
-                        .get(this.getUser)
-                        .put(this.updateUser)
-                        .delete(this.deleteUser);
-
-        // --------------------------------------------------------------
-        // --------------------------------------------------------------
-        // --------------------------------------------------------------
-        this.router.route('/user').post(middlewaresAuth.isAuth, middlewaresRol.isUser, this.user);
-        this.router.route('/admin').post(middlewaresAuth.isAuth, middlewaresRol.isAdmin,this.admin);
-        this.router.route('/company').post(middlewaresAuth.isAuth, middlewaresRol.isCompany,this.company);
+                        .get(middlewaresAuth.isAuth, middlewaresRol.isUser, this.getUser)
+                        .put(middlewaresAuth.isAuth, middlewaresRol.isUser, this.updateUser)
+                        .delete(middlewaresAuth.isAuth, middlewaresRol.isAdmin, this.deleteUser);
     }
 }
 

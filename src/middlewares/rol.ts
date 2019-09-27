@@ -4,7 +4,7 @@ import { IRequest } from '../interfaces/IRequest';
 class MiddlewareRol {
 
     isUser(req: IRequest, res: Response, next: NextFunction) {
-        if (req.rol == 'USER') { next(); }
+        if (req.rol == 'USER' || req.rol == 'COMPANY' || req.rol == 'ADMIN') { next(); }
         else { return res.status(400).send({message: 'You are not authorized.'}); }        
     }
 
@@ -14,7 +14,7 @@ class MiddlewareRol {
     }
 
     isCompany(req: IRequest, res: Response, next: NextFunction) {
-        if (req.rol == 'COMPANY') { next(); }
+        if (req.rol == 'COMPANY' || req.rol == 'ADMIN') { next(); }
         else { return res.status(400).send({message: 'You are not authorized.'}); }
     }
 }
