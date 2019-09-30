@@ -13,13 +13,13 @@ import { pathToFileURL } from 'url';
 class Server {
     public app: express.Application;
 
-    private optionsCors: cors.CorsOptions = {
-        allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "X-Access-Token"],
-        credentials: true,
-        methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
-        origin: 'http://localhost:4200',
-        preflightContinue: false
-    };
+    // private optionsCors: cors.CorsOptions = {
+    //     allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "X-Access-Token"],
+    //     credentials: true,
+    //     methods: "GET,HEAD,OPTIONS,PUT,PATCH,POST,DELETE",
+    //     origin: 'http://localhost:4200',
+    //     preflightContinue: false
+    // };
 
     constructor() {
         this.app = express();
@@ -29,7 +29,8 @@ class Server {
 
     config() {
         // MongoDB
-        const MONGO_URI = 'mongodb://admin:Moonblack12@ds035787.mlab.com:35787/bluemark';
+        // const MONGO_URI = 'mongodb://admin:Moonblack12@ds035787.mlab.com:35787/bluemark';
+        const MONGO_URI = 'mmongodb://localhost/bluemark';
         mongoose.set('useFindAndModify', true);
         mongoose.connect(MONGO_URI || process.env.MONGODB_URL, {
             useNewUrlParser: true,

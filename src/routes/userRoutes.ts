@@ -1,12 +1,14 @@
 import { Request, Response, Router } from "express";
 import { IRequest } from '../interfaces/IRequest';
-import User, { IUserModel } from '../models/user';
+import User, { IUser } from '../models/user';
 import TokenService from '../services/tokenService';
 import middlewaresAuth from '../middlewares/auth';
 import middlewaresRol from '../middlewares/rol';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import Credential, { ICredentialModel } from "../models/credentials";
+import { ObjectId } from "bson";
 
 class UserRoutes {
     private storage: multer.StorageEngine = multer.diskStorage({
@@ -29,62 +31,124 @@ class UserRoutes {
     async getProfile(req: IRequest, res: Response) {
         const idUsuario: string|undefined = req.iam;
         if (!idUsuario) return res.status(400).send({message: 'Token fail.'});
-        let user: IUserModel | null = await User.findById(idUsuario);
-        if (!user) return res.status(404).send({message: 'User not found.'});
-        if (user.password) { user.password = undefined; }
-        return res.status(200).send(user);
+
+        const auxUserRoutes:UserRoutes = new UserRoutes();
+        const result: IUser[] = await auxUserRoutes.userAggregate(req.params.id);
+        let me: IUser = result[0];
+        me.password = undefined;
+        res.json(me);
     }
  
     async getUsers(req: IRequest, res: Response) {
-        const users: IUserModel[] = await User.find();
-        res.json(users);
+        const auxUserRoutes:UserRoutes = new UserRoutes();
+        const result: IUser[] = await auxUserRoutes.userAggregate();
+        res.json(result);
     }
 
     async getUser(req: IRequest, res: Response) {
-        const user: IUserModel | null = await User.findById(req.params.id);
-        res.json(user);
+        const auxUserRoutes:UserRoutes = new UserRoutes();
+        const result: IUser[] = await auxUserRoutes.userAggregate(req.params.id);
+        res.json(result[0]);
+    }
+
+    async userAggregate(id?: string): Promise<IUser[]> {
+        const $match: any = id ? {_id:new ObjectId(id)} : {};
+        return await User.aggregate([
+            {$match},
+            {$lookup:
+                {
+                    from: "credentials",
+                    localField: "idCredential",
+                    foreignField: "_id",
+                    as: "Credential"
+                }
+            },
+            {
+                $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$Credential", 0 ] }, "$$ROOT" ] } }
+            },
+            {
+                $project: {
+                    "_id": 1,
+                    "name": 1,
+                    "firstLastName": 1,
+                    "secondLastName": 1,
+                    "birthdate": 1,
+                    "sex": "male",
+                    "createdAt": 1,
+                    "updatedAt": 1,
+                    "rol": 1,
+                    "email": 1,
+                    "password": 1,
+                }
+            }
+        ]);
     }
 
     async createUser(req: IRequest, res: Response) {
-        const newUser: IUserModel = new User(req.body);
+        const newCredential: ICredentialModel = new Credential(req.body);
+        await newCredential.save();
+        const newUser: IUser = new User(req.body);
+        newUser.idCredential = newCredential.id;
         await newUser.save();
-        res.json(newUser);
+        newCredential.idUser = newUser.id;
+        await newCredential.save();
+
+        const auxUserRoutes:UserRoutes = new UserRoutes();
+        const result: IUser[] = await auxUserRoutes.userAggregate(newUser.id);
+
+        res.json(result[0]);
     }
 
     async updateUser(req: IRequest, res: Response) {
         const idUsuario: string|undefined = req.iam;
-        let user: IUserModel | null = null;
+        let user: IUser | null = null;
+        let credential: ICredentialModel | null = null;
+        let idUser: string = '';
         if (!req.params.id && idUsuario) {
+            idUser = idUsuario;
             user = await User.findByIdAndUpdate(idUsuario, {$set:req.body}, {new: true});
+            if (user) {
+                credential = await Credential.findByIdAndUpdate(user.idCredential, {$set:req.body}, {new: true});
+            }
         }
         else if (req.params.id) {
-            user = await User.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});            
+            idUser = req.params.id;
+            user = await User.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true}); 
+            if (user) {
+                credential = await Credential.findByIdAndUpdate(user.idCredential, {$set:req.body}, {new: true});
+            }           
         }
-        res.json(user);     
+        
+        const auxUserRoutes:UserRoutes = new UserRoutes();
+        const result: IUser[] = await auxUserRoutes.userAggregate(idUser);
+
+        res.json(result[0]);     
     }
 
     async deleteUser(req: IRequest, res: Response) {
-        await User.findByIdAndDelete(req.params.id);
-        const user: IUserModel | null = await User.findById(req.params.id);
+        const user: IUser | null = await User.findById(req.params.id);
         if (user) {
-            await this.removeImage(user);
+            const auxUserRoutes:UserRoutes = new UserRoutes();
+            await auxUserRoutes.removeImage(user);
+            await Credential.findByIdAndDelete(user.idCredential);
         }
+        await User.findByIdAndDelete(req.params.id);
         res.json({message: 'User successfully removed.'});
     }
 
     async login(req: IRequest, res: Response) {
-        let user: IUserModel | null = await User.findOne({email: req.body.email}).exec();
-        if (!user) {
+        let credential: ICredentialModel | null = await Credential.findOne({email: req.body.email}).exec();
+        if (!credential) {
             return res.status(400).send({message: 'The email does not exist'});
         }
         
-        user.comparePassword(req.body.password, (err: any, match: boolean) => {
+        credential.comparePassword(req.body.password, (err: any, match: boolean) => {
             if (!match) {
                 return res.status(400).send({message: 'The password is invalid'});
             }
             else {
-                if (user) {
-                    const token: string = TokenService.createToken(user);
+                if (credential) {
+                    const token: string = TokenService.createToken(credential);
                     res.send({message: 'Wellcome!!', token});
                 }                
             }
@@ -92,13 +156,19 @@ class UserRoutes {
     }
 
     async signup(req: IRequest, res: Response) {
-        const newUser: IUserModel = new User(req.body);
+        const newCredential: ICredentialModel = new Credential(req.body);
+        await newCredential.save();
+        const newUser: IUser = new User(req.body);
+        newUser.idCredential = newCredential._id;
         await newUser.save();
-        const token: string = TokenService.createToken(newUser);
+        newCredential.idUser = newUser._id;
+        await newCredential.save();
+        // regresar el usuario completo
+        const token: string = TokenService.createToken(newCredential);
         res.send({message: 'Wellcome!!', token});
     }
 
-     async removeImage(user: IUserModel) {
+    async removeImage(user: IUser) {
         if (user && user.imageUrl) {
             const name = user.imageUrl.split('/').pop();
             if (name) {
@@ -114,7 +184,7 @@ class UserRoutes {
 
     async uploadImage(req: IRequest, res: Response) {
         const idUsuario: string|undefined = req.body.id ? req.body.id : req.iam;
-        const user: IUserModel | null = await User.findById(idUsuario);
+        const user: IUser | null = await User.findById(idUsuario);
         if (user) {
             await this.removeImage(user);
         }
