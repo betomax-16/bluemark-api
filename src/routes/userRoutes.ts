@@ -1,14 +1,16 @@
-import { Request, Response, Router } from "express";
+import { Response, Router } from "express";
 import { IRequest } from '../interfaces/IRequest';
 import User, { IUser } from '../models/user';
+import Company, { ICompany } from '../models/company';
 import TokenService from '../services/tokenService';
 import middlewaresAuth from '../middlewares/auth';
 import middlewaresRol from '../middlewares/rol';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
+import UploadImageService from '../services/uploadImageService';
 import Credential, { ICredentialModel } from "../models/credentials";
 import { ObjectId } from "bson";
+import Admin, { IAdmin } from "../models/admin";
 
 class UserRoutes {
     private storage: multer.StorageEngine = multer.diskStorage({
@@ -30,13 +32,27 @@ class UserRoutes {
 
     async getProfile(req: IRequest, res: Response) {
         const idUsuario: string|undefined = req.iam;
+        const rol: string|undefined = req.rol;
         if (!idUsuario) return res.status(400).send({message: 'Token fail.'});
 
         const auxUserRoutes:UserRoutes = new UserRoutes();
-        const result: IUser[] = await auxUserRoutes.userAggregate(req.params.id);
-        let me: IUser = result[0];
-        me.password = undefined;
-        res.json(me);
+        let result: any;
+        switch (rol) {
+            case 'USER':
+                    result = await auxUserRoutes.userAggregate(req.params.id);
+                break;
+            case 'COMPANY':
+                    result = await auxUserRoutes.companyAggregate(req.params.id);
+                break;
+            case 'ADMIN':
+                    result = await auxUserRoutes.adminAggregate(req.params.id);
+                break;
+            default:
+                break;
+        }
+        
+        result[0].password = undefined;
+        res.json(result[0]);
     }
  
     async getUsers(req: IRequest, res: Response) {
@@ -73,9 +89,74 @@ class UserRoutes {
                     "firstLastName": 1,
                     "secondLastName": 1,
                     "birthdate": 1,
-                    "sex": "male",
+                    "sex": 1,
                     "createdAt": 1,
                     "updatedAt": 1,
+                    "imageUrl": 1,
+                    "rol": 1,
+                    "email": 1,
+                    "password": 1,
+                }
+            }
+        ]);
+    }
+
+    async companyAggregate(id?: string): Promise<ICompany[]> {
+        const $match: any = id ? {_id:new ObjectId(id)} : {};
+        return await Company.aggregate([
+            {$match},
+            {$lookup:
+                {
+                    from: "credentials",
+                    localField: "idCredential",
+                    foreignField: "_id",
+                    as: "Credential"
+                }
+            },
+            {
+                $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$Credential", 0 ] }, "$$ROOT" ] } }
+            },
+            {
+                $project: {
+                    "_id": 1,
+                    "name": 1,
+                    "phone": 1,
+                    "address": 1,
+                    "cp": 1,
+                    "type": 1,
+                    "createdAt": 1,
+                    "updatedAt": 1,
+                    "imageUrl": 1,
+                    "rol": 1,
+                    "email": 1,
+                    "password": 1,
+                }
+            }
+        ]);
+    }
+
+    async adminAggregate(id?: string): Promise<IAdmin[]> {
+        const $match: any = id ? {_id:new ObjectId(id)} : {};
+        return await Admin.aggregate([
+            {$match},
+            {$lookup:
+                {
+                    from: "credentials",
+                    localField: "idCredential",
+                    foreignField: "_id",
+                    as: "Credential"
+                }
+            },
+            {
+                $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$Credential", 0 ] }, "$$ROOT" ] } }
+            },
+            {
+                $project: {
+                    "_id": 1,
+                    "name": 1,
+                    "createdAt": 1,
+                    "updatedAt": 1,
+                    "imageUrl": 1,
                     "rol": 1,
                     "email": 1,
                     "password": 1,
@@ -100,27 +181,41 @@ class UserRoutes {
     }
 
     async updateUser(req: IRequest, res: Response) {
-        const idUsuario: string|undefined = req.iam;
-        let user: IUser | null = null;
-        let credential: ICredentialModel | null = null;
-        let idUser: string = '';
-        if (!req.params.id && idUsuario) {
-            idUser = idUsuario;
-            user = await User.findByIdAndUpdate(idUsuario, {$set:req.body}, {new: true});
-            if (user) {
-                credential = await Credential.findByIdAndUpdate(user.idCredential, {$set:req.body}, {new: true});
-            }
-        }
-        else if (req.params.id) {
-            idUser = req.params.id;
-            user = await User.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true}); 
-            if (user) {
-                credential = await Credential.findByIdAndUpdate(user.idCredential, {$set:req.body}, {new: true});
-            }           
+        
+        if (req.body._id) {
+            delete req.body._id;
         }
         
+        let idUsuario: string = '';
         const auxUserRoutes:UserRoutes = new UserRoutes();
-        const result: IUser[] = await auxUserRoutes.userAggregate(idUser);
+        let result: any[] = [];
+        let credential: ICredentialModel | null = null;
+        if (!req.params.id && req.iam) {
+            idUsuario = req.iam;
+        }
+        else if (req.params.id) {
+            idUsuario = req.params.id;      
+        }
+        
+        credential = await Credential.findOneAndUpdate({idUser: new ObjectId(idUsuario)}, {$set:req.body}, {new: true});
+        if (credential) {
+            switch (credential.rol) {
+                case 'ADMIN':
+                        await Admin.findByIdAndUpdate(idUsuario, {$set:req.body}, {new: true});
+                        result = await auxUserRoutes.adminAggregate(idUsuario);
+                    break;
+                case 'COMPANY':
+                        await Company.findByIdAndUpdate(idUsuario, {$set:req.body}, {new: true});
+                        result = await auxUserRoutes.companyAggregate(idUsuario);
+                    break;
+                case 'USER':
+                        await User.findByIdAndUpdate(idUsuario, {$set:req.body}, {new: true});
+                        result = await auxUserRoutes.userAggregate(idUsuario);
+                    break;
+                default:
+                    break;
+            }
+        }
 
         res.json(result[0]);     
     }
@@ -128,8 +223,7 @@ class UserRoutes {
     async deleteUser(req: IRequest, res: Response) {
         const user: IUser | null = await User.findById(req.params.id);
         if (user) {
-            const auxUserRoutes:UserRoutes = new UserRoutes();
-            await auxUserRoutes.removeImage(user);
+            await UploadImageService.removeImage(user);
             await Credential.findByIdAndDelete(user.idCredential);
         }
         await User.findByIdAndDelete(req.params.id);
@@ -168,34 +262,46 @@ class UserRoutes {
         res.send({message: 'Wellcome!!', token});
     }
 
-    async removeImage(user: IUser) {
-        if (user && user.imageUrl) {
-            const name = user.imageUrl.split('/').pop();
-            if (name) {
-                const local: string = __dirname.replace('\\routes', '\\').replace('/routes', '/');
-                const file: string = path.join(local, 'public/profile', name);
-                const exist: boolean = await fs.existsSync(file);
-                if (exist) {
-                    await fs.unlinkSync(file);
-                }
-            }
+    async getRol(req: IRequest, res: Response) {
+        const credential: ICredentialModel | null = await Credential.findOne({idUser: new ObjectId(req.params.id)});
+        if (credential) {
+            res.json({rol: credential.rol});
+        }
+        else {
+            res.json({message: 'Dont find user.'});
         }
     }
 
-    async uploadImage(req: IRequest, res: Response) {
-        const idUsuario: string|undefined = req.body.id ? req.body.id : req.iam;
-        const user: IUser | null = await User.findById(idUsuario);
-        if (user) {
-            await this.removeImage(user);
-        }
-        const host = req.protocol + "://" + req.get('host') + '/static/profile/' + req.file.filename;
-        await User.findByIdAndUpdate(idUsuario, {$set:{imageUrl: host}}, {new: true});
-        res.json({imageUrl: host});
-    }
+    // async removeImage(user: IUser) {
+    //     if (user && user.imageUrl) {
+    //         const name = user.imageUrl.split('/').pop();
+    //         if (name) {
+    //             const local: string = __dirname.replace('\\routes', '\\').replace('/routes', '/');
+    //             const file: string = path.join(local, 'public/profile', name);
+    //             const exist: boolean = await fs.existsSync(file);
+    //             if (exist) {
+    //                 await fs.unlinkSync(file);
+    //             }
+    //         }
+    //     }
+    // }
+
+    // async uploadImage(req: IRequest, res: Response) {
+    //     const idUsuario: string|undefined = req.body.id ? req.body.id : req.iam;
+    //     const user: IUser | null = await User.findById(idUsuario);
+    //     if (user) {
+    //         await this.removeImage(user);
+    //     }
+    //     const host = req.protocol + "://" + req.get('host') + '/static/profile/' + req.file.filename;
+    //     await User.findByIdAndUpdate(idUsuario, {$set:{imageUrl: host}}, {new: true});
+    //     res.json({imageUrl: host});
+    // }
 
     routes() {
+        this.router.route('/rol/:id')
+                        .post(middlewaresAuth.isAuth, this.getRol);
         this.router.route('/imageprofile')
-                        .post(middlewaresAuth.isAuth, middlewaresRol.isUser, multer({storage: this.storage}).single('photo'), this.uploadImage);
+                        .post(middlewaresAuth.isAuth, middlewaresRol.isUser, multer({storage: this.storage}).single('photo'), UploadImageService.uploadImage);
         this.router.route('/profile')
                         .post(middlewaresAuth.isAuth, middlewaresRol.isUser, this.getProfile)
                         .put(middlewaresAuth.isAuth, middlewaresRol.isUser, this.updateUser);
