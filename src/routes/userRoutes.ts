@@ -34,18 +34,18 @@ class UserRoutes {
         const idUsuario: string|undefined = req.iam;
         const rol: string|undefined = req.rol;
         if (!idUsuario) return res.status(400).send({message: 'Token fail.'});
-
+        
         const auxUserRoutes:UserRoutes = new UserRoutes();
         let result: any;
         switch (rol) {
             case 'USER':
-                    result = await auxUserRoutes.userAggregate(req.params.id);
+                    result = await auxUserRoutes.userAggregate(idUsuario);
                 break;
             case 'COMPANY':
-                    result = await auxUserRoutes.companyAggregate(req.params.id);
+                    result = await auxUserRoutes.companyAggregate(idUsuario);
                 break;
             case 'ADMIN':
-                    result = await auxUserRoutes.adminAggregate(req.params.id);
+                    result = await auxUserRoutes.adminAggregate(idUsuario);
                 break;
             default:
                 break;

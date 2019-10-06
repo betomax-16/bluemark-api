@@ -3,6 +3,22 @@ import { Response, NextFunction } from "express";
 import { IRequest } from '../interfaces/IRequest';
 
 class MiddlewareAuth {
+    getData(req: IRequest, res: Response, next: NextFunction) {
+      const token = req.headers.authorization;
+
+      if (token) {
+        TokenService.decodeToken(token).then(response => {
+          req.iam = response.sub;
+          req.rol = response.rol;
+          next();
+        }).catch(response => {      
+          next();
+        });
+      }
+      else {
+        next();
+      }
+  }
 
     isAuth(req: IRequest, res: Response, next: NextFunction) {
         const token = req.headers.authorization;

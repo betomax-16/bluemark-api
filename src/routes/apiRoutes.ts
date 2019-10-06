@@ -2,6 +2,7 @@ import { Router } from "express";
 import userRoutes from "./userRoutes";
 import companyRoutes from './companyRoutes';
 import adminRoutes from './adminRoutes';
+import promotionRoutes from './promotionRoutes';
 
 class PostRoutes {
     public router: Router;
@@ -11,6 +12,7 @@ class PostRoutes {
         this.router.use(userRoutes);
         this.router.use(companyRoutes);
         this.router.use(adminRoutes);
+        this.router.use(promotionRoutes);
     }
 }
 

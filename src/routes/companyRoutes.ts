@@ -6,6 +6,7 @@ import middlewaresRol from '../middlewares/rol';
 import UploadImageService from '../services/uploadImageService';
 import Credential, { ICredentialModel } from "../models/credentials";
 import { ObjectId } from "bson";
+import Promotion from "../models/promotion";
 
 class CompanyRoutes {
     public router: Router;
@@ -114,6 +115,8 @@ class CompanyRoutes {
         if (company) {
             await UploadImageService.removeImage(company);
             await Credential.findByIdAndDelete(company.idCredential);
+            // Eliminar promociones
+            await Promotion.remove({idCompany: new ObjectId(company.id)});
         }
         await Company.findByIdAndDelete(req.params.id);
         res.json({message: 'User successfully removed.'});

@@ -25,6 +25,7 @@ class UploadImageService {
     }
 
     async uploadImage(req: IRequest, res: Response) {
+        const aux: UploadImageService = new UploadImageService();
         const idUsuario: string|undefined = req.body.id ? req.body.id : req.iam;
         let rol: string|undefined;
 
@@ -43,21 +44,21 @@ class UploadImageService {
             case 'USER':
                     const user: IUser | null = await User.findById(idUsuario);
                     if (user) {
-                        await this.removeImage(user);
+                        await aux.removeImage(user);
                     }
                     await User.findByIdAndUpdate(idUsuario, {$set:{imageUrl: host}}, {new: true});
                 break;
             case 'COMPANY':
                     const company: ICompany | null = await Company.findById(idUsuario);
                     if (company) {
-                        await this.removeImage(company);
+                        await aux.removeImage(company);
                     }
                     await Company.findByIdAndUpdate(idUsuario, {$set:{imageUrl: host}}, {new: true});
                 break;
             case 'ADMIN':
                     const admin: IAdmin | null = await Admin.findById(idUsuario);
                     if (admin) {
-                        await this.removeImage(admin);
+                        await aux.removeImage(admin);
                     }
                     await Admin.findByIdAndUpdate(idUsuario, {$set:{imageUrl: host}}, {new: true});
                 break;
