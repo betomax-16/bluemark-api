@@ -5,9 +5,20 @@ import Promotion, { IPromotion } from '../models/promotion';
 import middlewaresAuth from '../middlewares/auth';
 import middlewaresRol from '../middlewares/rol';
 import { ObjectId } from "bson";
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 class PromotionRoutes {
     public router: Router;
+    private storage: multer.StorageEngine = multer.diskStorage({
+        destination: path.join(__dirname.replace('\\routes', '\\').replace('/routes', '/'), 'public/promotion'),
+        filename: (req, file, cb) => {
+            const name = file.originalname.split('.')[0];
+            const ext = file.originalname.split('.').pop();
+            cb(null, name + '.' + ext );
+        }
+    });
 
     constructor() {
         this.router = Router();
@@ -82,11 +93,14 @@ class PromotionRoutes {
         const idCompany: string|undefined = req.iam;
         const newPromotion: IPromotion = new Promotion(req.body);
         let promotion: IPromotion|null;
+        //const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
 
         if (req.rol == 'COMPANY') {
             promotion = await Promotion.findOne({idCompany: new ObjectId(idCompany), namePromotion: newPromotion.namePromotion});
             if (!promotion) {
                 newPromotion.idCompany = new ObjectId(idCompany);
+                //newPromotion.imagePromotion = host;
+                console.log(newPromotion);
                 await newPromotion.save();
                 const auxPromotionRoutes:PromotionRoutes = new PromotionRoutes();
                 const result: IPromotion[] = await auxPromotionRoutes.promotionAggregate(newPromotion.id);
@@ -102,6 +116,7 @@ class PromotionRoutes {
                 if (credential && credential.rol == 'COMPANY') {
                     promotion = await Promotion.findOne({idCompany: new ObjectId(newPromotion.idCompany), namePromotion: newPromotion.namePromotion});
                     if (!promotion) {
+                        //newPromotion.imagePromotion = host;
                         await newPromotion.save();
                         const auxPromotionRoutes:PromotionRoutes = new PromotionRoutes();
                         const result: IPromotion[] = await auxPromotionRoutes.promotionAggregate(newPromotion.id);
@@ -122,20 +137,21 @@ class PromotionRoutes {
     }
 
     async updatePromotion(req: IRequest, res: Response) {
-        
+        //const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
         if (req.body._id) {
             delete req.body._id;
         }
-
+        
         let promotion: IPromotion|null = null;
         let result: IPromotion[]|undefined = undefined;
         if (req.params.id) {
-            const currentUser: ICredentialModel|null = await Credential.findById(req.iam);
+            const currentUser: ICredentialModel|null = await Credential.findOne({idUser:req.iam});
             if (currentUser) {
-               if (currentUser.rol == 'COMAPANY') {
+               if (currentUser.rol == 'COMPANY') {
                     if (req.body.namePromotion) {
                         const promotionExist: IPromotion|null = await Promotion.findOne({_id: new ObjectId(req.params.id), idCompany: new ObjectId(req.iam), namePromotion: req.body.namePromotion});
                         if (!promotionExist) {
+                            //req.body.imagePromotion = host;
                             promotion = await Promotion.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});   
                         }
                         else {
@@ -150,6 +166,7 @@ class PromotionRoutes {
                     if (req.body.namePromotion) {
                         const promotionExist: IPromotion|null = await Promotion.findOne({_id: new ObjectId(req.params.id), namePromotion: req.body.namePromotion});
                         if (!promotionExist) {
+                            //req.body.imagePromotion = host;
                             promotion = await Promotion.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});   
                         }
                         else {
@@ -174,11 +191,17 @@ class PromotionRoutes {
     }
 
     async deletePromotion(req: IRequest, res: Response) {
-        const currentUser: ICredentialModel|null = await Credential.findById(req.iam);
+        const aux: PromotionRoutes = new PromotionRoutes();
+        const currentUser: ICredentialModel|null = await Credential.findOne({idUser:req.iam});
+        const promo: IPromotion|null = await Promotion.findById(req.params.id);
         if (currentUser && currentUser.rol == 'COMPANY') {
             // Eliminar cupones
             const resp = await Promotion.remove({_id: req.params.id, idCompany: new ObjectId(req.iam)});
             if (resp.deletedCount && resp.deletedCount > 0) {
+                if (promo) {
+                    await aux.removeImage(promo);
+                }
+                
                 return res.json({message: 'Promotion successfully removed.'});
             }
             else {
@@ -189,6 +212,10 @@ class PromotionRoutes {
             // Eliminar cupones
             const resp = await Promotion.remove({_id: req.params.id});
             if (resp.deletedCount && resp.deletedCount > 0) {
+                if (promo) {
+                    await aux.removeImage(promo);
+                }
+
                 return res.json({message: 'Promotion successfully removed.'});
             }
             else {
@@ -200,6 +227,20 @@ class PromotionRoutes {
         }
     }
 
+    async removeImage(promo: any) {
+        if (promo && promo.imagePromotion) {
+            const name = promo.imagePromotion.split('/').pop();
+            if (name) {
+                const local: string = __dirname.replace('\\routes', '\\').replace('/routes', '/');
+                const file: string = path.join(local, 'public/promotion', name);
+                const exist: boolean = await fs.existsSync(file);
+                if (exist) {
+                    await fs.unlinkSync(file);
+                }
+            }
+        }
+    }
+
     routes() {
         this.router.route('/companies/:idCompany/promotions')
                         .get(middlewaresAuth.isAuth, middlewaresRol.isCompany, this.getPromotions)
@@ -207,10 +248,10 @@ class PromotionRoutes {
         // para obtener promociones propias de una compañia
         this.router.route('/promotions')
                         .get(middlewaresAuth.getData, this.getPromotions)
-                        .post(middlewaresAuth.isAuth, middlewaresRol.isCompany, this.createPromotion);
+                        .post(middlewaresAuth.isAuth, middlewaresRol.isCompany, multer({storage: this.storage}).single('photo'), this.createPromotion);
         this.router.route('/promotions/:id')
                         .get(this.getPromotion)
-                        .put(middlewaresAuth.isAuth, middlewaresRol.isCompany, this.updatePromotion)
+                        .put(middlewaresAuth.isAuth, middlewaresRol.isCompany, multer({storage: this.storage}).single('photo'), this.updatePromotion)
                         .delete(middlewaresAuth.isAuth, middlewaresRol.isCompany, this.deletePromotion);
     }
 }

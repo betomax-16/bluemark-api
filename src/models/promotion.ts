@@ -8,6 +8,7 @@ export interface IPromotion extends Document {
     idCompany?: ICompany['_id'];
     validity?: Date;
     couponIssuance?: number;
+    imagePromotion?: string;
 }
 
 const PromotionSchema = new Schema({
@@ -15,6 +16,7 @@ const PromotionSchema = new Schema({
     description: { type: String, required: true },
     validity: { type: Date, required: true },
     couponIssuance: { type: Number, required: true },
+    imagePromotion: { type: String, trim: true },
     idCompany: { type: Schema.Types.ObjectId, required: true, ref: 'Company' }
 }, 
 {timestamps: true});
