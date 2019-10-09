@@ -1,5 +1,5 @@
 import { Schema, model, Document } from 'mongoose';
-import { ICredential } from './credentials';
+import Credential, { ICredential } from './credentials';
 
 export interface IAdmin extends Document {
     name?: string;
@@ -16,5 +16,11 @@ const AdminSchema = new Schema({
     idCredential: { type: Schema.Types.ObjectId, required: true, ref: 'Credential' }
 }, 
 {timestamps: true});
+
+AdminSchema.pre('remove', async function (next){
+    const admin: IAdmin = this;
+    await Credential.remove({idUser: admin._id});
+    next();
+});
 
 export default model<IAdmin>('Admin', AdminSchema);

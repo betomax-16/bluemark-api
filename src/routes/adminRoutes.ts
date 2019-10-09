@@ -110,10 +110,10 @@ class AdminRoutes {
         const admin: IAdmin | null = await Admin.findById(req.params.id);
         if (admin) {
             await UploadImageService.removeImage(admin);
-            await Credential.findByIdAndDelete(admin.idCredential);
+            await admin.remove();
+            return res.json({message: 'Admin successfully removed.'});
         }
-        await Admin.findByIdAndDelete(req.params.id);
-        res.json({message: 'Admin successfully removed.'});
+        res.json({message: 'Admin not found'});
     }
 
     // async removeImage(company: ICompany) {

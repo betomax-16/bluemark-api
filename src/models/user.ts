@@ -26,4 +26,10 @@ const UserSchema = new Schema({
 }, 
 {timestamps: true});
 
+UserSchema.pre('remove', async function (next){
+    const user: IUser = this;
+    await Credential.remove({idUser: user._id});
+    next();
+});
+
 export default model<IUser>('User', UserSchema);

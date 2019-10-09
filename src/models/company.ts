@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { Schema, model, Document } from 'mongoose';
 import Credential, { ICredential, ICredentialModel } from './credentials';
+import Promotion, { IPromotion } from './promotion';
 
 export interface ICompany extends Document {
     name?: string;
@@ -25,5 +26,15 @@ const CompanySchema = new Schema({
     idCredential: { type: Schema.Types.ObjectId, required: true, ref: 'Credential' }
 }, 
 {timestamps: true});
+
+CompanySchema.pre('remove', async function (next){
+    const company: ICompany = this;
+    await Credential.remove({idUser: company._id});
+    const promotions: IPromotion[] = await Promotion.find({idCompany: company._id});
+    promotions.forEach(promotion => {
+        promotion.remove();
+    });
+    next();
+});
 
 export default model<ICompany>('Company', CompanySchema);

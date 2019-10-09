@@ -193,34 +193,26 @@ class PromotionRoutes {
     async deletePromotion(req: IRequest, res: Response) {
         const aux: PromotionRoutes = new PromotionRoutes();
         const currentUser: ICredentialModel|null = await Credential.findOne({idUser:req.iam});
-        const promo: IPromotion|null = await Promotion.findById(req.params.id);
+        
         if (currentUser && currentUser.rol == 'COMPANY') {
-            // Eliminar cupones
-            const resp = await Promotion.remove({_id: req.params.id, idCompany: new ObjectId(req.iam)});
-            if (resp.deletedCount && resp.deletedCount > 0) {
-                if (promo) {
-                    await aux.removeImage(promo);
-                }
-                
+            const promo: IPromotion|null = await Promotion.findOne({_id: new ObjectId(req.params.id), idCompany: new ObjectId(req.iam)});
+            if (promo) {
+                await aux.removeImage(promo);
+                await promo.remove();
                 return res.json({message: 'Promotion successfully removed.'});
             }
-            else {
-                res.json({message: 'Error removed.'});
-            }
+            
+            return res.json({message: 'Promotion not found'});
         }
         else if (currentUser && currentUser.rol == 'ADMIN') {
-            // Eliminar cupones
-            const resp = await Promotion.remove({_id: req.params.id});
-            if (resp.deletedCount && resp.deletedCount > 0) {
-                if (promo) {
-                    await aux.removeImage(promo);
-                }
-
+            const promo: IPromotion|null = await Promotion.findById(req.params.id);
+            if (promo) {
+                await aux.removeImage(promo);
+                await promo.remove();
                 return res.json({message: 'Promotion successfully removed.'});
             }
-            else {
-                res.json({message: 'Error removed.'});
-            }
+
+            return res.json({message: 'Promotion not found'});
         }
         else {
             res.json({message: 'You are not autorized.'});

@@ -224,10 +224,10 @@ class UserRoutes {
         const user: IUser | null = await User.findById(req.params.id);
         if (user) {
             await UploadImageService.removeImage(user);
-            await Credential.findByIdAndDelete(user.idCredential);
+            await user.remove();
+            return res.json({message: 'User successfully removed.'});
         }
-        await User.findByIdAndDelete(req.params.id);
-        res.json({message: 'User successfully removed.'});
+        res.json({message: 'User not found.'});
     }
 
     async login(req: IRequest, res: Response) {

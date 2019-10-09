@@ -22,7 +22,7 @@ const PromotionSchema = new Schema({
 {timestamps: true});
 
 PromotionSchema.pre('remove', function (next){
-    let promo: IPromotion = this;
+    const promo: IPromotion = this;
     // remover cupones
     next();
 })

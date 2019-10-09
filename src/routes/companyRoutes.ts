@@ -114,12 +114,10 @@ class CompanyRoutes {
         const company: ICompany | null = await Company.findById(req.params.id);
         if (company) {
             await UploadImageService.removeImage(company);
-            await Credential.findByIdAndDelete(company.idCredential);
-            // Eliminar promociones
-            await Promotion.remove({idCompany: new ObjectId(company.id)});
+            await company.remove();
+            return res.json({message: 'User successfully removed.'});
         }
-        await Company.findByIdAndDelete(req.params.id);
-        res.json({message: 'User successfully removed.'});
+        res.json({message: 'Company not found.'});
     }
 
     // async removeImage(company: ICompany) {
