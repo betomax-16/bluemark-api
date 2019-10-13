@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { Schema, model, Document } from 'mongoose';
 import Credential, { ICredential, ICredentialModel } from './credentials';
+import path from 'path';
+import fs from 'fs';
 
 export interface IUser extends Document {
     name?: string;
@@ -28,6 +30,17 @@ const UserSchema = new Schema({
 
 UserSchema.pre('remove', async function (next){
     const user: IUser = this;
+    if (user && user.imageUrl) {
+        const name = user.imageUrl.split('/').pop();
+        if (name) {
+            const local: string = __dirname.replace('\\models', '\\').replace('/models', '/');
+            const file: string = path.join(local, 'public/profile', name);
+            const exist: boolean = await fs.existsSync(file);
+            if (exist) {
+                await fs.unlinkSync(file);
+            }
+        }
+    }
     await Credential.remove({idUser: user._id});
     next();
 });

@@ -8,6 +8,7 @@ import { ObjectId } from "bson";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { Types } from "mongoose";
 
 class PromotionRoutes {
     public router: Router;
@@ -84,6 +85,7 @@ class PromotionRoutes {
                     "description": 1,
                     "validity": 1,
                     "couponIssuance": 1,
+                    "imagePromotion":1,
                 }
             }
         ]);
@@ -91,16 +93,19 @@ class PromotionRoutes {
 
     async createPromotion(req: IRequest, res: Response) {
         const idCompany: string|undefined = req.iam;
-        const newPromotion: IPromotion = new Promotion(req.body);
+        delete req.body._id;
+        let newPromotion: IPromotion = new Promotion(req.body);
         let promotion: IPromotion|null;
         //const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
 
         if (req.rol == 'COMPANY') {
             promotion = await Promotion.findOne({idCompany: new ObjectId(idCompany), namePromotion: newPromotion.namePromotion});
-            if (!promotion) {
+            if (!promotion && idCompany) {
+                if (req.file) {
+                    const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
+                    newPromotion.imagePromotion = host;
+                }
                 newPromotion.idCompany = new ObjectId(idCompany);
-                //newPromotion.imagePromotion = host;
-                console.log(newPromotion);
                 await newPromotion.save();
                 const auxPromotionRoutes:PromotionRoutes = new PromotionRoutes();
                 const result: IPromotion[] = await auxPromotionRoutes.promotionAggregate(newPromotion.id);
@@ -116,7 +121,10 @@ class PromotionRoutes {
                 if (credential && credential.rol == 'COMPANY') {
                     promotion = await Promotion.findOne({idCompany: new ObjectId(newPromotion.idCompany), namePromotion: newPromotion.namePromotion});
                     if (!promotion) {
-                        //newPromotion.imagePromotion = host;
+                        if (req.file) {
+                            const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
+                            newPromotion.imagePromotion = host;
+                        }
                         await newPromotion.save();
                         const auxPromotionRoutes:PromotionRoutes = new PromotionRoutes();
                         const result: IPromotion[] = await auxPromotionRoutes.promotionAggregate(newPromotion.id);

@@ -1,5 +1,7 @@
 import { Schema, model, Document } from 'mongoose';
 import { ICompany } from './company';
+import path from 'path';
+import fs from 'fs';
 
 export interface IPromotion extends Document {
     name?: string,
@@ -21,8 +23,19 @@ const PromotionSchema = new Schema({
 }, 
 {timestamps: true});
 
-PromotionSchema.pre('remove', function (next){
+PromotionSchema.pre('remove', async function (next){
     const promo: IPromotion = this;
+    if (promo && promo.imagePromotion) {
+        const name = promo.imagePromotion.split('/').pop();
+        if (name) {
+            const local: string = __dirname.replace('\\models', '\\').replace('/models', '/');
+            const file: string = path.join(local, 'public/promotion', name);
+            const exist: boolean = await fs.existsSync(file);
+            if (exist) {
+                await fs.unlinkSync(file);
+            }
+        }
+    }
     // remover cupones
     next();
 })
