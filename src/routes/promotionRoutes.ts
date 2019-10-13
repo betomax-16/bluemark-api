@@ -147,6 +147,11 @@ class PromotionRoutes {
     async updatePromotion(req: IRequest, res: Response) {
         //const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
         if (req.body._id) {
+            const promAux: IPromotion|null = await Promotion.findById(req.body._id);
+            if (promAux && promAux.imagePromotion) {
+                const aux: PromotionRoutes = new PromotionRoutes();
+                aux.removeImage(promAux);
+            }
             delete req.body._id;
         }
         
@@ -160,10 +165,24 @@ class PromotionRoutes {
                         const promotionExist: IPromotion|null = await Promotion.findOne({_id: new ObjectId(req.params.id), idCompany: new ObjectId(req.iam), namePromotion: req.body.namePromotion});
                         if (!promotionExist) {
                             //req.body.imagePromotion = host;
+                            if (req.file) {
+                                const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
+                                req.body.imagePromotion = host;
+                            }
+                            
                             promotion = await Promotion.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});   
                         }
                         else {
-                            return res.json({message: 'Promotion exist'});
+                            if (promotionExist.namePromotion == req.body.namePromotion) {
+                                if (req.file) {
+                                    const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
+                                    req.body.imagePromotion = host;
+                                }
+                                promotion = await Promotion.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});   
+                            }
+                            else {
+                                return res.json({message: 'Promotion exist'});
+                            }
                         }
                     }
                     else {
@@ -175,6 +194,10 @@ class PromotionRoutes {
                         const promotionExist: IPromotion|null = await Promotion.findOne({_id: new ObjectId(req.params.id), namePromotion: req.body.namePromotion});
                         if (!promotionExist) {
                             //req.body.imagePromotion = host;
+                            if (req.file) {
+                                const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
+                                req.body.imagePromotion = host;
+                            }
                             promotion = await Promotion.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});   
                         }
                         else {
