@@ -78,6 +78,7 @@ class PromotionRoutes {
             {
                 $project: {
                     "_id": 1,
+                    "idCompany":1,
                     "name":1,
                     "namePromotion": 1,
                     "createdAt": 1,
@@ -264,7 +265,55 @@ class PromotionRoutes {
         }
     }
 
+    async search(req: IRequest, res: Response) {
+        const textSearch: string = req.query.text;
+        let $match: any;
+        if (textSearch) {
+            $match = { $or: [  
+                {namePromotion: { '$regex': textSearch, '$options' : 'i'}}, 
+                {name: { '$regex': textSearch, '$options' : 'i'}}, 
+                {type: { '$regex': textSearch, '$options' : 'i'} } 
+            ] };
+        }
+        else {
+            $match = {};
+        }
+        const result = await Promotion.aggregate([
+            {$match:{validity: { $gt: new Date() }}},
+            {$lookup:
+                {
+                    from: "companies",
+                    localField: "idCompany",
+                    foreignField: "_id",
+                    as: "Company"
+                }
+            },
+            {
+                $replaceRoot: { newRoot: { $mergeObjects: [ { $arrayElemAt: [ "$Company", 0 ] }, "$$ROOT" ] } }
+            },
+            {
+                $project: {
+                    "_id": 1,
+                    "idCompany":1,
+                    "name":1,
+                    "type":1,
+                    "namePromotion": 1,
+                    "createdAt": 1,
+                    "updatedAt": 1,
+                    "description": 1,
+                    "validity": 1,
+                    "couponIssuance": 1,
+                    "imagePromotion":1,
+                }
+            },
+            {$match},
+        ]);
+        return res.json(result);
+    }
+
     routes() {
+        this.router.route('/search')
+                        .get(this.search);
         this.router.route('/companies/:idCompany/promotions')
                         .get(middlewaresAuth.isAuth, middlewaresRol.isCompany, this.getPromotions)
         // para busqueda de promociones
