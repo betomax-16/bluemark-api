@@ -149,9 +149,12 @@ class PromotionRoutes {
         //const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
         if (req.body._id) {
             const promAux: IPromotion|null = await Promotion.findById(req.body._id);
-            if (promAux && promAux.imagePromotion) {
-                const aux: PromotionRoutes = new PromotionRoutes();
-                aux.removeImage(promAux);
+            if (promAux && promAux.imagePromotion && req.file) {
+                const filenamePromo: string | undefined = promAux.imagePromotion.split('/').pop();
+                if (filenamePromo && req.file.filename != filenamePromo) {
+                    const aux: PromotionRoutes = new PromotionRoutes();
+                    aux.removeImage(promAux);
+                }
             }
             delete req.body._id;
         }
@@ -202,7 +205,16 @@ class PromotionRoutes {
                             promotion = await Promotion.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});   
                         }
                         else {
-                            return res.json({message: 'Promotion exist'});
+                            if (promotionExist.namePromotion == req.body.namePromotion) {
+                                if (req.file) {
+                                    const host = req.protocol + "://" + req.get('host') + '/static/promotion/' + req.file.filename;
+                                    req.body.imagePromotion = host;
+                                }
+                                promotion = await Promotion.findByIdAndUpdate(req.params.id, {$set:req.body}, {new: true});   
+                            }
+                            else {
+                                return res.json({message: 'Promotion exist'});
+                            }
                         }
                     }
                     else {

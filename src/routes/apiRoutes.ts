@@ -3,6 +3,7 @@ import userRoutes from "./userRoutes";
 import companyRoutes from './companyRoutes';
 import adminRoutes from './adminRoutes';
 import promotionRoutes from './promotionRoutes';
+import couponRoutes from './couponRoutes';
 
 class PostRoutes {
     public router: Router;
@@ -13,6 +14,7 @@ class PostRoutes {
         this.router.use(companyRoutes);
         this.router.use(adminRoutes);
         this.router.use(promotionRoutes);
+        this.router.use(couponRoutes);
     }
 }
 

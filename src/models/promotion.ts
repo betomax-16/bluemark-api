@@ -11,6 +11,7 @@ export interface IPromotion extends Document {
     validity?: Date;
     couponIssuance?: number;
     imagePromotion?: string;
+    company?: ICompany;
 }
 
 const PromotionSchema = new Schema({
