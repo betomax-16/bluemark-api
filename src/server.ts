@@ -29,8 +29,8 @@ class Server {
 
     config() {
         // MongoDB
-        // const MONGO_URI = 'mongodb://admin:Moonblack12@ds035787.mlab.com:35787/bluemark';
-        const MONGO_URI = 'mmongodb://localhost/bluemark';
+        const MONGO_URI = 'mongodb://admin:Moonblack12@ds035787.mlab.com:35787/bluemark';
+        // const MONGO_URI = 'mmongodb://localhost/bluemark';
         mongoose.set('useFindAndModify', true);
         mongoose.connect(MONGO_URI || process.env.MONGODB_URL, {
             useNewUrlParser: true,
