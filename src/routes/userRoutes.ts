@@ -33,11 +33,11 @@ class UserRoutes {
     async getProfile(req: IRequest, res: Response) {
         const idUsuario: string|undefined = req.iam;
         const rol: string|undefined = req.rol;
-        return res.json({message:idUsuario});
         if (!idUsuario) return res.status(400).send({message: 'Token fail.'});
-        return res.json({message:rol});
+        //return res.json({message:rol});
         const auxUserRoutes:UserRoutes = new UserRoutes();
         let result: any;
+        //return res.json({message:'rol'});
         switch (rol) {
             case 'USER':
                     result = await auxUserRoutes.userAggregate(idUsuario);

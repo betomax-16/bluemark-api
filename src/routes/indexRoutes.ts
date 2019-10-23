@@ -10,7 +10,7 @@ class IndexRoutes {
 
     routes() {
         this.router.get('/', (req, res) => {
-            res.send('Hola mundo 2');
+            res.send('Hola mundo 3');
         })
     }
 }
