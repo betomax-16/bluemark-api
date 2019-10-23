@@ -31,10 +31,12 @@ class UserRoutes {
     }
 
     async getProfile(req: IRequest, res: Response) {
+        return res.json({message:'H1'});
         const idUsuario: string|undefined = req.iam;
         const rol: string|undefined = req.rol;
+        return res.json({message:idUsuario});
         if (!idUsuario) return res.status(400).send({message: 'Token fail.'});
-        
+        return res.json({message:rol});
         const auxUserRoutes:UserRoutes = new UserRoutes();
         let result: any;
         switch (rol) {
@@ -51,7 +53,7 @@ class UserRoutes {
                 return res.json({message:'Sin Rol'});
                 break;
         }
-        
+        return res.json(result);
         result[0].password = undefined;
         res.json(result[0]);
     }
