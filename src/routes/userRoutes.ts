@@ -52,7 +52,7 @@ class UserRoutes {
                 return res.json({message:'Sin Rol'});
                 break;
         }
-        return res.json(result);
+        return res.json({result, idUsuario});
         result[0].password = undefined;
         res.json(result[0]);
     }
