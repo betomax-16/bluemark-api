@@ -48,6 +48,7 @@ class UserRoutes {
                     result = await auxUserRoutes.adminAggregate(idUsuario);
                 break;
             default:
+                return res.json({message:'Sin Rol'});
                 break;
         }
         
