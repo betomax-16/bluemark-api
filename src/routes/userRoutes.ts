@@ -31,7 +31,6 @@ class UserRoutes {
     }
 
     async getProfile(req: IRequest, res: Response) {
-        return res.json({message:'H1'});
         const idUsuario: string|undefined = req.iam;
         const rol: string|undefined = req.rol;
         return res.json({message:idUsuario});
